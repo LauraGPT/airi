@@ -1,6 +1,6 @@
 import type { Card, ccv3 } from '@proj-airi/ccc'
 
-import type { AiriCard, AiriExtension } from '../../types/airiCard'
+import type { AiriCard, AiriExtension } from '../../../types/airiCard'
 
 import { useLocalStorageManualReset } from '@proj-airi/stage-shared/composables'
 import { nanoid } from 'nanoid'
@@ -8,17 +8,17 @@ import { defineStore, storeToRefs } from 'pinia'
 import { computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
-import SystemPromptV2 from '../../constants/prompts/system-v2'
+import SystemPromptV2 from '../../../constants/prompts/system-v2'
 
-import { DEFAULT_ARTISTRY_WIDGET_SPAWNING_PROMPT } from '../../constants/prompts/character-defaults'
-import { capturePosthogEvent } from '../analytics/posthog'
-import { useSettingsStageModel } from '../settings/stage-model'
-import { useArtistryStore } from './artistry'
-import { useConsciousnessStore } from './consciousness'
-import { useSpeechStore } from './speech'
-import { useVisionStore } from './vision'
+import { DEFAULT_ARTISTRY_WIDGET_SPAWNING_PROMPT } from '../../../constants/prompts/character-defaults'
+import { capturePosthogEvent } from '../../analytics/posthog'
+import { useSettingsStageModel } from '../../settings/stage-model'
+import { useArtistryStore } from '../artistry'
+import { useConsciousnessStore } from '../consciousness'
+import { useSpeechStore } from '../speech'
+import { useVisionStore } from '../vision'
 
-export type { AiriCard, AiriExtension } from '../../types/airiCard'
+export type { AiriCard, AiriExtension } from '../../../types/airiCard'
 
 function resolveSystemPrompt(card: AiriCard | undefined): string {
   if (!card)
@@ -296,19 +296,20 @@ export const useAiriCardStore = defineStore('airi-card', () => {
   }
 
   function initialize() {
-    if (cards.value.has('default')) {
-      applyActiveCardSettings()
-      return
+    if (!cards.value.has('default')) {
+      cards.value.set('default', newAiriCard({
+        name: 'ReLU',
+        version: '1.0.0',
+        description: SystemPromptV2(
+          t('base.prompt.prefix'),
+          t('base.prompt.suffix'),
+        ).content,
+      }))
     }
-    cards.value.set('default', newAiriCard({
-      name: 'ReLU',
-      version: '1.0.0',
-      description: SystemPromptV2(
-        t('base.prompt.prefix'),
-        t('base.prompt.suffix'),
-      ).content,
-    }))
-    if (!activeCardId.value)
+
+    // The selected ID lives in a separate localStorage key. Preserve it when
+    // its card migrated successfully, and repair only a missing/damaged target.
+    if (!cards.value.has(activeCardId.value))
       activeCardId.value = 'default'
 
     applyActiveCardSettings()

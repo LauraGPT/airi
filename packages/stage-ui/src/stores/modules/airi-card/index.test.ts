@@ -1,10 +1,10 @@
-import type { AiriCard } from './airi-card'
+import type { AiriCard } from './index'
 
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { useSettingsStageModel } from '../settings/stage-model'
-import { useAiriCardStore } from './airi-card'
+import { useSettingsStageModel } from '../../settings/stage-model'
+import { useAiriCardStore } from './index'
 
 // NOTICE:
 // Vitest runs these store tests in Node, where localforage cannot select a
@@ -21,7 +21,7 @@ vi.mock('localforage', () => ({
   },
 }))
 
-vi.mock('./artistry', async () => {
+vi.mock('../artistry', async () => {
   const { defineStore } = await import('pinia')
 
   return {
@@ -43,7 +43,7 @@ vi.mock('./artistry', async () => {
   }
 })
 
-vi.mock('./consciousness', async () => {
+vi.mock('../consciousness', async () => {
   const { defineStore } = await import('pinia')
 
   return {
@@ -56,7 +56,7 @@ vi.mock('./consciousness', async () => {
   }
 })
 
-vi.mock('./speech', async () => {
+vi.mock('../speech', async () => {
   const { defineStore } = await import('pinia')
 
   return {
@@ -70,7 +70,7 @@ vi.mock('./speech', async () => {
   }
 })
 
-vi.mock('./vision', async () => {
+vi.mock('../vision', async () => {
   const { defineStore } = await import('pinia')
 
   return {
@@ -310,5 +310,30 @@ describe('airi-card store', () => {
     expect(cardStore.removeCard('default')).toBe(false)
     expect(cardStore.cards.has('default')).toBe(true)
     expect(cardStore.activeCardId).toBe('default')
+  })
+
+  it('preserves a valid active card ID while initializing migrated cards', () => {
+    const cardStore = useAiriCardStore()
+    const cardId = cardStore.addCard({
+      name: 'Migrated active card',
+      version: '1.0.0',
+      description: 'Keep this selection.',
+    }, 'scratch')
+    cardStore.activeCardId = cardId
+
+    cardStore.initialize()
+
+    expect(cardStore.activeCardId).toBe(cardId)
+    expect(cardStore.activeCard?.name).toBe('Migrated active card')
+  })
+
+  it('repairs a dangling active card ID during initialization', () => {
+    const cardStore = useAiriCardStore()
+    cardStore.activeCardId = 'damaged-card'
+
+    cardStore.initialize()
+
+    expect(cardStore.activeCardId).toBe('default')
+    expect(cardStore.activeCard?.name).toBe('ReLU')
   })
 })
