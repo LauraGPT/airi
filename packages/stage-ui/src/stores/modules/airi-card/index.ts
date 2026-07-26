@@ -11,6 +11,7 @@ import { useI18n } from 'vue-i18n'
 import SystemPromptV2 from '../../../constants/prompts/system-v2'
 
 import { DEFAULT_ARTISTRY_WIDGET_SPAWNING_PROMPT } from '../../../constants/prompts/character-defaults'
+import { compileCharacterCardSystemPrompt } from '../../../services/characterCard/runtime'
 import { capturePosthogEvent } from '../../analytics/posthog'
 import { useSettingsStageModel } from '../../settings/stage-model'
 import { useArtistryStore } from '../artistry'
@@ -19,23 +20,6 @@ import { useSpeechStore } from '../speech'
 import { useVisionStore } from '../vision'
 
 export type { AiriCard, AiriExtension } from '../../../types/airiCard'
-
-function resolveSystemPrompt(card: AiriCard | undefined): string {
-  if (!card)
-    return ''
-
-  // Position-sensitive CCv3 fields are deliberately excluded until provider
-  // message assembly owns their ordering and role semantics.
-  const systemPromptParts = [
-    card.systemPrompt,
-    card.description,
-    card.personality,
-    card.scenario,
-    card.extensions.airi.modules.artistry?.widgetInstruction,
-  ].filter((part): part is string => typeof part === 'string' && part.trim().length > 0)
-
-  return systemPromptParts.join('\n\n')
-}
 
 export const useAiriCardStore = defineStore('airi-card', () => {
   const { t } = useI18n()
@@ -404,6 +388,6 @@ export const useAiriCardStore = defineStore('airi-card', () => {
         activeBackgroundId: activeCard.value?.extensions?.airi?.modules?.activeBackgroundId,
       } satisfies AiriExtension['modules']
     }),
-    systemPrompt: computed(() => resolveSystemPrompt(activeCard.value)),
+    systemPrompt: computed(() => compileCharacterCardSystemPrompt(activeCard.value)),
   }
 })

@@ -1,3 +1,4 @@
+import type { AiriCard } from '../../types/airiCard'
 import type { ChatSessionMeta, ChatSessionRecord, ChatSessionsIndex } from '../../types/chat-session'
 
 import { createPinia, setActivePinia } from 'pinia'
@@ -7,6 +8,8 @@ import { nextTick, ref } from 'vue'
 // Refs the store reads through the mocked `useAuthStore` / `useAiriCardStore`.
 // Tests mutate these to simulate auth and card swaps.
 const userIdRef = ref<string>('local')
+const userRef = ref<{ name: string } | null>(null)
+const activeCardRef = ref<AiriCard>()
 const activeCardIdRef = ref<string>('default')
 const systemPromptRef = ref<string>('')
 
@@ -29,11 +32,12 @@ vi.mock('pinia', async () => {
 })
 
 vi.mock('../auth', () => ({
-  useAuthStore: () => ({ userId: userIdRef }),
+  useAuthStore: () => ({ user: userRef, userId: userIdRef }),
 }))
 
 vi.mock('../modules/airi-card', () => ({
   useAiriCardStore: () => ({
+    activeCard: activeCardRef,
     activeCardId: activeCardIdRef,
     systemPrompt: systemPromptRef,
   }),
@@ -99,6 +103,8 @@ const { useChatSessionStore } = await import('./session-store')
 beforeEach(() => {
   setActivePinia(createPinia())
   userIdRef.value = 'local'
+  userRef.value = null
+  activeCardRef.value = undefined
   activeCardIdRef.value = 'default'
   systemPromptRef.value = ''
 
@@ -390,5 +396,39 @@ describe('chat-session-store · active card prompt edits', () => {
     expect(store.messages[0]?.id).toBe('system-message')
     expect(store.messages[0]?.content).toContain('Updated persisted prompt')
     expect(store.messages[1]?.content).toBe('Persisted history')
+  })
+})
+
+describe('chat-session-store · character greeting', () => {
+  it('adds the active card greeting only when creating a new session', async () => {
+    userRef.value = { name: 'Mira' }
+    activeCardRef.value = {
+      name: 'ReLU',
+      nickname: 'Nova',
+      version: '1.0.0',
+      greetings: ['Hello, {{user}}. I am {{char}}.'],
+      extensions: {
+        airi: {
+          modules: {
+            consciousness: { provider: '', model: '' },
+            vision: { provider: '', model: '' },
+            speech: { provider: '', model: '', voice_id: '' },
+          },
+          agents: {},
+        },
+      },
+    }
+
+    const store = useChatSessionStore()
+    await store.initialize()
+
+    expect(store.messages).toHaveLength(2)
+    expect(store.messages[0]?.role).toBe('system')
+    expect(store.messages[1]).toMatchObject({
+      role: 'assistant',
+      content: 'Hello, Mira. I am Nova.',
+      slices: [{ type: 'text', text: 'Hello, Mira. I am Nova.' }],
+      tool_results: [],
+    })
   })
 })

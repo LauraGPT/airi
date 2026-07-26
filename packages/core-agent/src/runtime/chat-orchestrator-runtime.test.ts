@@ -51,6 +51,7 @@ function createHarness() {
     await options?.onStreamEvent?.({ type: 'finish', finishReason: 'stop' })
   })
   const ids = ['stream-context', 'assistant-id', 'user-id', 'fallback-id']
+  let composeProviderMessages: ((messages: Message[], context: { sessionId: string }) => Message[]) | undefined
   let systemPromptSupplement: string | undefined
   let nowValue = new Date(2026, 3, 25, 18, 47).getTime()
   let monotonicNowValues = [1000]
@@ -82,6 +83,7 @@ function createHarness() {
     getActiveSessionId: () => 'session-1',
     getActiveProvider: () => 'mock-provider',
     getSystemPromptSupplement: () => systemPromptSupplement,
+    composeProviderMessages: (messages, context) => composeProviderMessages?.(messages, context) ?? messages,
     now: () => nowValue,
     monotonicNow: () => monotonicNowValues.shift() ?? 1000,
     createId: () => ids.shift() ?? 'generated-id',
@@ -107,6 +109,11 @@ function createHarness() {
   return {
     assistantAppended,
     assistantTurns,
+    composeProviderMessages: {
+      set: (next: typeof composeProviderMessages) => {
+        composeProviderMessages = next
+      },
+    },
     contextSnapshot,
     foregroundPatches,
     foregroundResets,
@@ -301,6 +308,35 @@ describe('createChatOrchestratorRuntime', () => {
       role: 'system',
       content: 'system prompt\n\nPlugin toolset guidance.',
     })
+  })
+
+  it('projects platform-owned provider messages after generic prompt composition', async () => {
+    const harness = createHarness()
+    let composedMessages: Message[] = []
+    harness.systemPromptSupplement.set('Plugin toolset guidance.')
+    harness.composeProviderMessages.set((messages, context) => [
+      ...messages,
+      { role: 'system', content: `Runtime policy for ${context.sessionId}.` },
+    ])
+    harness.stream.mockImplementationOnce(async (_model, _chatProvider, messages, options) => {
+      composedMessages = messages
+      await options?.onStreamEvent?.({ type: 'finish', finishReason: 'stop' })
+    })
+
+    await harness.runtime.ingest('hello from user', {
+      model: 'gpt-test',
+      chatProvider: provider,
+    })
+
+    expect(composedMessages.at(-1)).toEqual({
+      role: 'system',
+      content: 'Runtime policy for session-1.',
+    })
+    expect(harness.promptProjections).toEqual([
+      expect.objectContaining({
+        composedMessage: composedMessages,
+      }),
+    ])
   })
 
   /**

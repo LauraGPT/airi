@@ -184,6 +184,13 @@ export interface ChatOrchestratorRuntimeDeps {
   getActiveProvider: () => string | undefined
   /** Returns optional prompt text appended to the provider system message for this send. */
   getSystemPromptSupplement?: () => string | undefined
+  /**
+   * Applies platform-owned prompt policy after generic context composition.
+   *
+   * The returned messages are the exact projection observed by hooks and sent
+   * to the provider; implementations must not mutate persisted session state.
+   */
+  composeProviderMessages?: (messages: Message[], context: { sessionId: string }) => Message[]
   /** Runtime context providers ingested immediately before prompt composition. */
   runtimeContextProviders?: Array<() => ContextMessage | null | undefined>
   /** Clock used for persisted message timestamps. @default Date.now */
@@ -671,13 +678,16 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
         })
       }
 
-      streamingMessageContext.composedMessage = newMessages as Message[]
+      const composedMessages = deps.composeProviderMessages?.(newMessages as Message[], { sessionId })
+        ?? newMessages as Message[]
+
+      streamingMessageContext.composedMessage = composedMessages
       deps.onPromptProjection?.({
         sessionId,
         message: sendingMessage,
         contexts: contextsSnapshot,
         promptMessage: undefined,
-        composedMessage: newMessages as Message[],
+        composedMessage: composedMessages,
       })
       deps.onLifecycle?.({
         phase: 'after-compose',
@@ -685,7 +695,7 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
         sessionId,
         textPreview: sendingMessage,
         details: {
-          composedMessage: newMessages,
+          composedMessage: composedMessages,
         },
       })
 
@@ -708,7 +718,7 @@ export function createChatOrchestratorRuntime(deps: ChatOrchestratorRuntimeDeps)
         hasVoice: !!options.input,
       })
 
-      await deps.llm.stream(options.model, options.chatProvider, newMessages as Message[], {
+      await deps.llm.stream(options.model, options.chatProvider, composedMessages, {
         headers,
         requestCorrelation: {
           conversationId: correlation.conversationId,

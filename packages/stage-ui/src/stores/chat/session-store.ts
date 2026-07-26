@@ -23,6 +23,7 @@ import {
   reconcileLocalAndRemote,
 } from '../../libs/chat-sync'
 import { SERVER_URL } from '../../libs/server'
+import { compileCharacterCardGreeting } from '../../services/characterCard/runtime'
 import { capturePosthogEvent } from '../analytics/posthog'
 import { useAuthStore } from '../auth'
 import { useAiriCardStore } from '../modules/airi-card'
@@ -48,8 +49,8 @@ interface CloudMergePayload {
 const OUTBOX_MAX_ATTEMPTS = 5
 
 export const useChatSessionStore = defineStore('chat-session', () => {
-  const { userId, token: authToken } = storeToRefs(useAuthStore())
-  const { activeCardId, systemPrompt } = storeToRefs(useAiriCardStore())
+  const { user, userId, token: authToken } = storeToRefs(useAuthStore())
+  const { activeCard, activeCardId, systemPrompt } = storeToRefs(useAiriCardStore())
 
   const activeSessionId = ref<string>('')
   const sessionMessages = ref<Record<string, ChatHistoryItem[]>>({})
@@ -176,6 +177,24 @@ export const useChatSessionStore = defineStore('chat-session', () => {
 
   function generateInitialMessage() {
     return generateInitialMessageFromPrompt(systemPrompt.value)
+  }
+
+  function generateInitialMessages() {
+    const messages: ChatHistoryItem[] = [generateInitialMessage()]
+    const greeting = compileCharacterCardGreeting(activeCard?.value, {
+      userName: user?.value?.name || 'User',
+    })
+    if (greeting) {
+      messages.push({
+        role: 'assistant',
+        content: greeting,
+        slices: [{ type: 'text', text: greeting }],
+        tool_results: [],
+        id: nanoid(),
+        createdAt: Date.now(),
+      })
+    }
+    return messages
   }
 
   function refreshActiveSessionSystemMessage() {
@@ -415,7 +434,7 @@ export const useChatSessionStore = defineStore('chat-session', () => {
       updatedAt: now,
     }
 
-    const initialMessages = options?.messages?.length ? cloneDeep(options.messages) : [generateInitialMessage()]
+    const initialMessages = options?.messages?.length ? cloneDeep(options.messages) : generateInitialMessages()
 
     sessionMetas.value[sessionId] = meta
     replaceSessionMessages(sessionId, initialMessages, { persist: false })
@@ -827,7 +846,7 @@ export const useChatSessionStore = defineStore('chat-session', () => {
           cloudChatId: remote.id,
         }
         sessionMetas.value[remote.id] = adoptedMeta
-        sessionMessages.value[remote.id] = [generateInitialMessage()]
+        sessionMessages.value[remote.id] = generateInitialMessages()
         ensureGeneration(remote.id)
 
         if (!index.value)
@@ -1212,7 +1231,7 @@ export const useChatSessionStore = defineStore('chat-session', () => {
   function ensureSession(sessionId: string) {
     ensureGeneration(sessionId)
     if (!sessionMessages.value[sessionId] || sessionMessages.value[sessionId].length === 0) {
-      replaceSessionMessages(sessionId, [generateInitialMessage()], { persist: false })
+      replaceSessionMessages(sessionId, generateInitialMessages(), { persist: false })
     }
   }
 
@@ -1289,7 +1308,7 @@ export const useChatSessionStore = defineStore('chat-session', () => {
   function cleanupMessages(sessionId = activeSessionId.value) {
     ensureGeneration(sessionId)
     sessionGenerations.value[sessionId] += 1
-    setSessionMessages(sessionId, [generateInitialMessage()])
+    setSessionMessages(sessionId, generateInitialMessages())
   }
 
   function getAllSessions() {
