@@ -23,7 +23,7 @@ import {
   reconcileLocalAndRemote,
 } from '../../libs/chat-sync'
 import { SERVER_URL } from '../../libs/server'
-import { compileCharacterCardGreeting } from '../../services/characterCard/runtime'
+import { compileCharacterCardGreeting } from '../../services/airiCard/runtime'
 import { capturePosthogEvent } from '../analytics/posthog'
 import { useAuthStore } from '../auth'
 import { useAiriCardStore } from '../modules/airi-card'

@@ -1,6 +1,6 @@
 import type { Card } from '@proj-airi/ccc'
 
-import type { AiriExtension } from '../types/airiCard'
+import type { AiriExtension } from '../../types/airiCard'
 
 import {
   check,
@@ -17,6 +17,26 @@ import {
 } from 'valibot'
 
 export type AiriCardDraftValidationError = 'name' | 'version' | 'invalid_artistry_json'
+
+/** Editor-owned state stored outside the CCv3 card document. */
+export interface AiriCardEditorState {
+  consciousnessProvider: string
+  consciousnessModel: string
+  visionProvider: string
+  visionModel: string
+  speechProvider: string
+  speechModel: string
+  speechVoiceId: string
+  displayModelId: string
+  artistryProvider: string
+  artistryModel: string
+  artistryPromptPrefix: string
+  artistryWidgetInstruction: string
+  artistrySpawnMode: 'bg' | 'widget' | 'inline' | 'bg_widget'
+  artistryAutonomousEnabled: boolean
+  artistryAutonomousThreshold: number
+  artistryConfig: string
+}
 
 /** Module settings owned by the AIRI Card editor form. */
 interface AiriCardEditorModules {
@@ -68,6 +88,16 @@ const artistryOptionsSchema = pipe(
   check(isRecord),
   objectWithRest({}, unknown()),
 )
+
+/**
+ * Serializes all editor-owned fields into a stable dirty-check snapshot.
+ *
+ * The card and module state share one boundary so edits on tabs that are not
+ * currently visible still prevent accidental dialog closure.
+ */
+export function serializeAiriCardEditorDraft(card: Card, state: AiriCardEditorState): string {
+  return JSON.stringify({ card, state })
+}
 
 /**
  * Validates and normalizes the fields owned by the AIRI Card editor.

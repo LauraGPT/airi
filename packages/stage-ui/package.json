@@ -31,6 +31,7 @@
     "./libs/*": "./src/libs/*.ts",
     "./libs": "./src/libs/index.ts",
     "./services/*": "./src/services/*.ts",
+    "./services/airiCard/editor": "./src/services/airiCard/editor.ts",
     "./tools/mcp": "./src/tools/mcp.ts",
     "./stores/providers/aliyun": "./src/stores/providers/aliyun/index.ts",
     "./stores/analytics": "./src/stores/analytics/index.ts",

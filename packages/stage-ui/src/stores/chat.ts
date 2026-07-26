@@ -18,7 +18,7 @@ import {
   AIRI_CHAT_SESSION_ID_HEADER,
 } from '../libs/analytics-headers'
 import { extractMessageText, isCloudSyncableMessage } from '../libs/chat-sync'
-import { compileCharacterCardMessages } from '../services/characterCard/runtime'
+import { compileCharacterCardMessages } from '../services/airiCard/runtime'
 import { useAuthStore } from './auth'
 import { createMinecraftContext } from './chat/context-providers'
 import { useChatContextStore } from './chat/context-store'
