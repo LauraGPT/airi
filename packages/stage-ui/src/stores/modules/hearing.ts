@@ -286,7 +286,7 @@ const providerScopedTranscriptionModelDefaults = {
 } as const
 
 /**
- * Resolves the provider-scoped model that should be mirrored into Hearing state.
+ * Resolves the provider-owned model that should be mirrored into Hearing state.
  *
  * Explicit empty strings are preserved so clearing a required provider setting also
  * clears the persisted Hearing model instead of silently restoring a default.
@@ -295,12 +295,12 @@ export function resolveProviderConfiguredTranscriptionModel(
   providerId: string,
   providerConfig?: Record<string, unknown>,
 ): string | undefined {
-  if (!(providerId in providerScopedTranscriptionModelDefaults))
-    return undefined
-
   const configuredModel = providerConfig?.model
   if (typeof configuredModel === 'string')
     return configuredModel
+
+  if (!(providerId in providerScopedTranscriptionModelDefaults))
+    return undefined
 
   return providerScopedTranscriptionModelDefaults[providerId as keyof typeof providerScopedTranscriptionModelDefaults]
 }
@@ -322,10 +322,6 @@ export function resolveTranscriptionModelOnProviderChange(
   const configuredModel = resolveProviderConfiguredTranscriptionModel(providerId, providerConfig)
   if (configuredModel !== undefined)
     return configuredModel
-
-  const modelFromProviderConfig = typeof providerConfig?.model === 'string' ? providerConfig.model.trim() : ''
-  if (modelFromProviderConfig)
-    return modelFromProviderConfig
 
   if (previousProviderId === undefined && providerModels.some(model => model.id === activeModel))
     return activeModel

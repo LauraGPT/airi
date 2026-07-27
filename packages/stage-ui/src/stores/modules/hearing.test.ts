@@ -107,7 +107,14 @@ describe('resolveProviderConfiguredTranscriptionModel', () => {
     expect(resolveProviderConfiguredTranscriptionModel('openai-compatible-audio-transcription')).toBe('whisper-1')
   })
 
-  it('does not synchronize models for providers without provider-scoped model settings', () => {
+  it('uses the configured model for any provider that owns a model setting', () => {
+    expect(resolveProviderConfiguredTranscriptionModel(
+      'mimo-audio-transcription',
+      { model: 'mimo-v2.5' },
+    )).toBe('mimo-v2.5')
+  })
+
+  it('does not synchronize models for providers without model settings', () => {
     expect(resolveProviderConfiguredTranscriptionModel('browser-web-speech-api')).toBeUndefined()
   })
 })

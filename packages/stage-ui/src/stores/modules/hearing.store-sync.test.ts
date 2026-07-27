@@ -81,6 +81,44 @@ describe('hearing provider model synchronization', () => {
     })
   })
 
+  it('does not clear a configured model while switching to its provider', async () => {
+    const providersStore = useProvidersStore()
+    providersStore.providers['openai-audio-transcription'] = {
+      apiKey: 'test-key',
+      baseUrl: 'https://api.openai.com/v1/',
+      model: 'configured-transcription-model',
+    }
+
+    const metadata = providersStore.providerMetadata['openai-audio-transcription']
+    const originalListModels = metadata.capabilities.listModels
+    const pendingModels = deferred<ModelInfo[]>()
+    let invocation = 0
+    metadata.capabilities.listModels = async () => {
+      invocation += 1
+      return await pendingModels.promise
+    }
+
+    try {
+      const hearingStore = useHearingStore()
+      hearingStore.activeTranscriptionProvider = 'funasr-audio-transcription'
+      await vi.waitFor(() => {
+        expect(hearingStore.activeTranscriptionModel).toBe('sensevoice')
+      })
+
+      hearingStore.activeTranscriptionProvider = 'openai-audio-transcription'
+
+      await vi.waitFor(() => {
+        expect(hearingStore.activeTranscriptionModel).toBe('configured-transcription-model')
+      })
+      expect(providersStore.getProviderConfig('openai-audio-transcription')?.model).toBe('configured-transcription-model')
+      expect(invocation).toBe(0)
+    }
+    finally {
+      pendingModels.resolve([])
+      metadata.capabilities.listModels = originalListModels
+    }
+  })
+
   it('does not let an earlier asynchronous provider load overwrite a later provider selection', async () => {
     const providersStore = useProvidersStore()
     const hearingStore = useHearingStore()
@@ -228,29 +266,33 @@ describe('hearing provider model synchronization', () => {
     }
   })
 
-  it('does not let an earlier invocation apply stale config after the same provider is reselected', async () => {
+  it('does not let an earlier invocation apply stale models after the same provider is reselected', async () => {
     const providersStore = useProvidersStore()
+    providersStore.providers['openai-audio-transcription'] = {
+      apiKey: 'test-key',
+      baseUrl: 'https://api.openai.com/v1/',
+    }
     const originalFetch = providersStore.fetchModelsForProvider
-    const originalGetConfig = providersStore.getProviderConfig
-    const firstLoad = deferred<void>()
-    const secondLoad = deferred<void>()
-    let currentConfig: Record<string, unknown> = { model: 'stale-configured-model' }
+    const originalGetModels = providersStore.getModelsForProvider
+    const firstLoad = deferred<ModelInfo[]>()
+    const secondLoad = deferred<ModelInfo[]>()
+    let currentModels: ModelInfo[] = []
     let invocation = 0
     let completed = 0
 
-    providersStore.getProviderConfig = vi.fn((providerId: string) => {
+    providersStore.getModelsForProvider = vi.fn((providerId: string) => {
       if (providerId === 'openai-audio-transcription')
-        return currentConfig
-      return originalGetConfig(providerId)
+        return currentModels
+      return originalGetModels(providerId)
     })
     providersStore.fetchModelsForProvider = vi.fn(async (providerId: string) => {
       if (providerId !== 'openai-audio-transcription')
         return await originalFetch(providerId)
 
       invocation += 1
-      await (invocation === 1 ? firstLoad.promise : secondLoad.promise)
+      currentModels = await (invocation === 1 ? firstLoad.promise : secondLoad.promise)
       completed += 1
-      return []
+      return currentModels
     })
 
     try {
@@ -266,26 +308,33 @@ describe('hearing provider model synchronization', () => {
         expect(hearingStore.activeTranscriptionModel).toBe('sensevoice')
       })
 
-      currentConfig = { model: 'fresh-configured-model' }
       hearingStore.activeTranscriptionProvider = 'openai-audio-transcription'
       await vi.waitFor(() => {
         expect(invocation).toBe(2)
       })
 
-      secondLoad.resolve()
+      secondLoad.resolve([{
+        id: 'fresh-transcription-model',
+        name: 'Fresh transcription model',
+        provider: 'openai-audio-transcription',
+      }])
       await vi.waitFor(() => {
-        expect(hearingStore.activeTranscriptionModel).toBe('fresh-configured-model')
+        expect(hearingStore.activeTranscriptionModel).toBe('fresh-transcription-model')
       })
 
-      firstLoad.resolve()
+      firstLoad.resolve([{
+        id: 'stale-transcription-model',
+        name: 'Stale transcription model',
+        provider: 'openai-audio-transcription',
+      }])
       await vi.waitFor(() => {
         expect(completed).toBe(2)
       })
 
-      expect(hearingStore.activeTranscriptionModel).toBe('fresh-configured-model')
+      expect(hearingStore.activeTranscriptionModel).toBe('fresh-transcription-model')
     }
     finally {
-      providersStore.getProviderConfig = originalGetConfig
+      providersStore.getModelsForProvider = originalGetModels
       providersStore.fetchModelsForProvider = originalFetch
     }
   })
