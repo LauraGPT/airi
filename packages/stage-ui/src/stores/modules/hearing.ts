@@ -454,14 +454,14 @@ export const useHearingStore = defineStore('hearing-store', () => {
     if (supportsListing || previousProviderId !== undefined)
       activeTranscriptionModel.value = ''
 
-    await loadModelsForProvider(providerId)
+    const providerModels = await loadModelsForProvider(providerId)
     if (revision !== providerChangeRevision || activeTranscriptionProvider.value !== providerId)
       return
 
     activeTranscriptionModel.value = resolveTranscriptionModelOnProviderChange(
       providerId,
       providerConfig,
-      providersStore.getModelsForProvider(providerId),
+      providerModels,
       previousProviderId,
       previousActiveModel,
     )
@@ -489,8 +489,10 @@ export const useHearingStore = defineStore('hearing-store', () => {
 
   async function loadModelsForProvider(provider: string) {
     if (providersStore.findProviderMetadata(provider)?.capabilities.listModels !== undefined) {
-      await providersStore.fetchModelsForProvider(provider)
+      return await providersStore.fetchModelsForProvider(provider)
     }
+
+    return []
   }
 
   async function getModelsForProvider(provider: string) {

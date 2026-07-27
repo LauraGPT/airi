@@ -266,6 +266,52 @@ describe('hearing provider model synchronization', () => {
     }
   })
 
+  it('does not select stale cached models when the current refresh returns no models', async () => {
+    const providersStore = useProvidersStore()
+    providersStore.providers['openai-audio-transcription'] = {
+      apiKey: 'test-key',
+      baseUrl: 'https://api.openai.com/v1/',
+    }
+    const originalFetch = providersStore.fetchModelsForProvider
+    const originalGetModels = providersStore.getModelsForProvider
+    let completed = false
+
+    providersStore.fetchModelsForProvider = vi.fn(async (providerId: string) => {
+      if (providerId !== 'openai-audio-transcription')
+        return await originalFetch(providerId)
+
+      await Promise.resolve()
+      completed = true
+      return []
+    })
+    providersStore.getModelsForProvider = vi.fn((providerId: string) => {
+      if (providerId === 'openai-audio-transcription') {
+        return [{
+          id: 'stale-cached-model',
+          name: 'Stale cached model',
+          provider: 'openai-audio-transcription',
+        }]
+      }
+      return originalGetModels(providerId)
+    })
+
+    try {
+      const hearingStore = useHearingStore()
+      hearingStore.activeTranscriptionProvider = 'openai-audio-transcription'
+
+      await vi.waitFor(() => {
+        expect(completed).toBe(true)
+      })
+      await new Promise(resolve => setTimeout(resolve, 0))
+
+      expect(hearingStore.activeTranscriptionModel).toBe('')
+    }
+    finally {
+      providersStore.fetchModelsForProvider = originalFetch
+      providersStore.getModelsForProvider = originalGetModels
+    }
+  })
+
   it('does not let an earlier invocation apply stale models after the same provider is reselected', async () => {
     const providersStore = useProvidersStore()
     providersStore.providers['openai-audio-transcription'] = {
