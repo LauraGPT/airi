@@ -419,8 +419,14 @@ export const useHearingStore = defineStore('hearing-store', () => {
     return resolveProviderConfiguredTranscriptionModel(providerId, providersStore.getProviderConfig(providerId))
   })
 
+  let synchronizingModelToProviderConfig = false
+  let providerConfigRevision = 0
+
   // Provider settings and Hearing state are persisted separately; keep scoped models aligned both ways.
   watch(providerConfiguredTranscriptionModel, (configuredModel) => {
+    if (!synchronizingModelToProviderConfig)
+      providerConfigRevision += 1
+
     if (configuredModel === undefined)
       return
 
@@ -438,8 +444,15 @@ export const useHearingStore = defineStore('hearing-store', () => {
       providersStore.getProviderConfig(providerId),
       supportsModelListing,
     )
-    if (updatedConfig)
-      providersStore.providers[providerId] = updatedConfig
+    if (updatedConfig) {
+      synchronizingModelToProviderConfig = true
+      try {
+        providersStore.providers[providerId] = updatedConfig
+      }
+      finally {
+        synchronizingModelToProviderConfig = false
+      }
+    }
 
     if (providerId === 'openai-compatible-audio-transcription')
       activeCustomModelName.value = model
@@ -468,13 +481,17 @@ export const useHearingStore = defineStore('hearing-store', () => {
     if (supportsListing || previousProviderId !== undefined)
       activeTranscriptionModel.value = ''
 
+    const configRevision = providerConfigRevision
     const providerModels = await loadModelsForProvider(providerId)
     if (revision !== providerChangeRevision || activeTranscriptionProvider.value !== providerId)
       return
 
+    const currentProviderConfig = providerConfigRevision === configRevision
+      ? providerConfig
+      : providersStore.getProviderConfig(providerId)
     activeTranscriptionModel.value = resolveTranscriptionModelOnProviderChange(
       providerId,
-      providerConfig,
+      currentProviderConfig,
       providerModels,
       previousProviderId,
       previousActiveModel,

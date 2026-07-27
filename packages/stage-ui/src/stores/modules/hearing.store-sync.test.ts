@@ -151,6 +151,68 @@ describe('hearing provider model synchronization', () => {
     }
   })
 
+  it('keeps a provider model configured while its model list is loading', async () => {
+    const providersStore = useProvidersStore()
+    providersStore.providers['openai-audio-transcription'] = {
+      apiKey: 'test-key',
+      baseUrl: 'https://api.openai.com/v1/',
+    }
+
+    const metadata = providersStore.providerMetadata['openai-audio-transcription']
+    const originalListModels = metadata.capabilities.listModels
+    const pendingModels = deferred<ModelInfo[]>()
+    let invocation = 0
+    let completed = 0
+    metadata.capabilities.listModels = async () => {
+      invocation += 1
+      const models = await pendingModels.promise
+      completed += 1
+      return models
+    }
+
+    try {
+      const hearingStore = useHearingStore()
+      hearingStore.activeTranscriptionProvider = 'openai-audio-transcription'
+
+      await vi.waitFor(() => {
+        expect(invocation).toBe(1)
+      })
+
+      providersStore.providers['openai-audio-transcription'] = {
+        ...providersStore.providers['openai-audio-transcription'],
+        model: 'comet-model',
+      }
+
+      await vi.waitFor(() => {
+        expect(hearingStore.activeTranscriptionModel).toBe('comet-model')
+        expect(invocation).toBe(2)
+      })
+
+      pendingModels.resolve([
+        {
+          id: 'gpt-4o-transcribe',
+          name: 'GPT-4o Transcribe',
+          provider: 'openai-audio-transcription',
+        },
+        {
+          id: 'whisper-1',
+          name: 'Whisper-1',
+          provider: 'openai-audio-transcription',
+        },
+      ])
+
+      await vi.waitFor(() => {
+        expect(completed).toBeGreaterThanOrEqual(2)
+      })
+      expect(hearingStore.activeTranscriptionModel).toBe('comet-model')
+      expect(providersStore.getProviderConfig('openai-audio-transcription')?.model).toBe('comet-model')
+    }
+    finally {
+      pendingModels.resolve([])
+      metadata.capabilities.listModels = originalListModels
+    }
+  })
+
   it('does not clear a configured model while switching to its provider', async () => {
     const providersStore = useProvidersStore()
     providersStore.providers['openai-audio-transcription'] = {
