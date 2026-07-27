@@ -308,9 +308,9 @@ export function resolveProviderConfiguredTranscriptionModel(
 /**
  * Resolves the model to use after changing transcription providers.
  *
- * Provider-scoped settings take precedence, followed by the destination provider's
- * first listed model. An initial manual model is retained only when no transition
- * occurred and the provider cannot supply a model choice.
+ * Provider-scoped settings take precedence. During initial hydration, a persisted
+ * model is retained when the provider still lists it; provider transitions select
+ * the destination provider's first model instead of carrying stale state across.
  */
 export function resolveTranscriptionModelOnProviderChange(
   providerId: string,
@@ -322,6 +322,9 @@ export function resolveTranscriptionModelOnProviderChange(
   const configuredModel = resolveProviderConfiguredTranscriptionModel(providerId, providerConfig)
   if (configuredModel !== undefined)
     return configuredModel
+
+  if (previousProviderId === undefined && providerModels.some(model => model.id === activeModel))
+    return activeModel
 
   const listedModel = providerModels.find(model => model.id)?.id
   if (listedModel)

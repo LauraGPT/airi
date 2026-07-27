@@ -113,6 +113,16 @@ describe('resolveProviderConfiguredTranscriptionModel', () => {
 })
 
 describe('resolveTranscriptionModelOnProviderChange', () => {
+  it('preserves a valid persisted model during initial provider hydration', () => {
+    expect(resolveTranscriptionModelOnProviderChange(
+      'openai-audio-transcription',
+      undefined,
+      [{ id: 'gpt-4o-transcribe' }, { id: 'whisper-1' }],
+      undefined,
+      'whisper-1',
+    )).toBe('whisper-1')
+  })
+
   it('selects the official provider model instead of retaining a FunASR model', () => {
     expect(resolveTranscriptionModelOnProviderChange(
       'official-provider-transcription',
