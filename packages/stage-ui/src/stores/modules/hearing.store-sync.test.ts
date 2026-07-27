@@ -60,6 +60,27 @@ describe('hearing provider model synchronization', () => {
     })
   })
 
+  it('persists a Hearing model selection into another provider with a model setting', async () => {
+    const providersStore = useProvidersStore()
+    providersStore.providers['mimo-audio-transcription'] = {
+      apiKey: 'test-key',
+      baseUrl: 'https://api.xiaomimimo.com/v1/',
+      model: 'mimo-v2-omni',
+    }
+    const hearingStore = useHearingStore()
+
+    hearingStore.activeTranscriptionProvider = 'mimo-audio-transcription'
+    await vi.waitFor(() => {
+      expect(hearingStore.activeTranscriptionModel).toBe('mimo-v2-omni')
+    })
+
+    hearingStore.activeTranscriptionModel = 'mimo-v2.5'
+
+    await vi.waitFor(() => {
+      expect(providersStore.getProviderConfig('mimo-audio-transcription')?.model).toBe('mimo-v2.5')
+    })
+  })
+
   it('does not let an earlier asynchronous provider load overwrite a later provider selection', async () => {
     const providersStore = useProvidersStore()
     const hearingStore = useHearingStore()
@@ -146,6 +167,61 @@ describe('hearing provider model synchronization', () => {
         name: 'Fresh transcription model',
         provider: 'openai-audio-transcription',
       }])
+    }
+    finally {
+      metadata.capabilities.listModels = originalListModels
+    }
+  })
+
+  it('waits for the current same-provider fetch before resolving a provider transition', async () => {
+    const providersStore = useProvidersStore()
+    providersStore.providers['openai-audio-transcription'] = {
+      apiKey: 'test-key',
+      baseUrl: 'https://api.openai.com/v1/',
+    }
+
+    const metadata = providersStore.providerMetadata['openai-audio-transcription']
+    const originalListModels = metadata.capabilities.listModels
+    const firstModels = deferred<ModelInfo[]>()
+    const secondModels = deferred<ModelInfo[]>()
+    let invocation = 0
+
+    metadata.capabilities.listModels = async () => {
+      invocation += 1
+      return await (invocation === 1 ? firstModels.promise : secondModels.promise)
+    }
+
+    try {
+      const hearingStore = useHearingStore()
+      hearingStore.activeTranscriptionProvider = 'openai-audio-transcription'
+
+      await vi.waitFor(() => {
+        expect(invocation).toBe(1)
+      })
+
+      const competingFetch = providersStore.fetchModelsForProvider('openai-audio-transcription')
+      await vi.waitFor(() => {
+        expect(invocation).toBe(2)
+      })
+
+      firstModels.resolve([{
+        id: 'stale-transcription-model',
+        name: 'Stale transcription model',
+        provider: 'openai-audio-transcription',
+      }])
+      await new Promise(resolve => setTimeout(resolve, 0))
+      expect(hearingStore.activeTranscriptionModel).toBe('')
+
+      secondModels.resolve([{
+        id: 'fresh-transcription-model',
+        name: 'Fresh transcription model',
+        provider: 'openai-audio-transcription',
+      }])
+      await competingFetch
+
+      await vi.waitFor(() => {
+        expect(hearingStore.activeTranscriptionModel).toBe('fresh-transcription-model')
+      })
     }
     finally {
       metadata.capabilities.listModels = originalListModels

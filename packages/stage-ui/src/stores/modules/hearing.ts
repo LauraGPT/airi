@@ -338,14 +338,16 @@ export function resolveTranscriptionModelOnProviderChange(
 }
 
 /**
- * Returns an updated provider config when Hearing changes a provider-scoped model.
+ * Returns an updated provider config when Hearing changes a provider-owned model.
  */
 export function resolveProviderConfigWithTranscriptionModel(
   providerId: string,
   model: string,
   providerConfig?: Record<string, unknown>,
 ): Record<string, unknown> | undefined {
-  if (!(providerId in providerScopedTranscriptionModelDefaults) || providerConfig?.model === model)
+  const ownsModelSetting = providerId in providerScopedTranscriptionModelDefaults
+    || Object.hasOwn(providerConfig ?? {}, 'model')
+  if (!ownsModelSetting || providerConfig?.model === model)
     return undefined
 
   return {

@@ -181,6 +181,14 @@ describe('resolveProviderConfigWithTranscriptionModel', () => {
     )).toBeUndefined()
   })
 
+  it('persists a Hearing model selection for any provider with a model setting', () => {
+    expect(resolveProviderConfigWithTranscriptionModel(
+      'mimo-audio-transcription',
+      'mimo-v2.5',
+      { baseUrl: 'https://api.xiaomimimo.com/v1/', model: 'mimo-v2-omni' },
+    )).toEqual({ baseUrl: 'https://api.xiaomimimo.com/v1/', model: 'mimo-v2.5' })
+  })
+
   it('does not persist a global model into providers without scoped model settings', () => {
     expect(resolveProviderConfigWithTranscriptionModel(
       'official-provider-transcription',

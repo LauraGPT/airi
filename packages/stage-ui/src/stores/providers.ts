@@ -2641,11 +2641,33 @@ export const useProvidersStore = defineStore('providers', () => {
   }
 
   const modelFetchRevisions = new Map<string, number>()
+  const modelFetchPromises = new Map<string, Promise<ModelInfo[]>>()
 
   // Function to fetch models for a specific provider
-  async function fetchModelsForProvider(providerId: string) {
+  function fetchModelsForProvider(providerId: string) {
     const revision = (modelFetchRevisions.get(providerId) ?? 0) + 1
     modelFetchRevisions.set(providerId, revision)
+    const promise = fetchModelsForProviderRevision(providerId, revision)
+    modelFetchPromises.set(providerId, promise)
+    return promise
+  }
+
+  async function waitForCurrentModelFetch(providerId: string, supersededRevision: number): Promise<ModelInfo[]> {
+    while (true) {
+      const currentRevision = modelFetchRevisions.get(providerId)
+      const currentPromise = modelFetchPromises.get(providerId)
+      if (currentRevision === undefined || currentRevision === supersededRevision || !currentPromise)
+        return []
+
+      const models = await currentPromise
+      if (modelFetchRevisions.get(providerId) === currentRevision)
+        return models
+
+      supersededRevision = currentRevision
+    }
+  }
+
+  async function fetchModelsForProviderRevision(providerId: string, revision: number): Promise<ModelInfo[]> {
     const isCurrent = () => modelFetchRevisions.get(providerId) === revision
     const startedAt = Date.now()
     const metadata = providerMetadata[providerId]
@@ -2671,7 +2693,7 @@ export const useProvidersStore = defineStore('providers', () => {
     try {
       const models = metadata.capabilities.listModels ? await metadata.capabilities.listModels(config || {}) : []
       if (!isCurrent())
-        return []
+        return await waitForCurrentModelFetch(providerId, revision)
 
       // Transform and store the models
       if (runtimeState) {
@@ -2702,7 +2724,7 @@ export const useProvidersStore = defineStore('providers', () => {
     }
     catch (error) {
       if (!isCurrent())
-        return []
+        return await waitForCurrentModelFetch(providerId, revision)
 
       console.error(`Error fetching models for ${providerId}:`, error)
       if (runtimeState) {
