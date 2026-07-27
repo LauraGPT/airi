@@ -2767,15 +2767,22 @@ export const useProvidersStore = defineStore('providers', () => {
       }
     }
   }
+
+  function serializeProviderConnectionConfig(config: Record<string, unknown>) {
+    const connectionConfig = { ...config }
+    delete connectionConfig.model
+    return JSON.stringify(connectionConfig)
+  }
+
   const previousCredentialHashes = ref<Record<string, string>>({})
 
-  // Watch for credential changes and refetch models accordingly
+  // Watch for connection changes and refetch models accordingly.
   watch(providerCredentials, (newCreds) => {
     const changedProviders: string[] = []
 
     for (const providerId in newCreds) {
       const currentConfig = newCreds[providerId]
-      const currentHash = JSON.stringify(currentConfig)
+      const currentHash = serializeProviderConnectionConfig(currentConfig)
       const previousHash = previousCredentialHashes.value[providerId]
 
       if (currentHash !== previousHash) {

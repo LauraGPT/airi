@@ -71,6 +71,12 @@ function validateFunASRConfig(config: Record<string, unknown>) {
   }
 }
 
+/**
+ * Builds metadata for the local OpenAI-compatible FunASR transcription provider.
+ *
+ * @param creator Injectable provider factory for tests or compatible runtimes. Defaults to `createOpenAI`.
+ * @returns Credential-optional metadata with local defaults, fixed FunASR model choices, and config validation.
+ */
 export function buildFunASRProvider(
   creator: FunASRProviderCreator = createOpenAI,
 ): ProviderMetadata {

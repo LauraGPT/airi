@@ -90,9 +90,9 @@ describe('hearing provider model synchronization', () => {
 
     const metadata = providersStore.providerMetadata['openai-audio-transcription']
     const originalListModels = metadata.capabilities.listModels
-    let completed = false
+    let invocation = 0
     metadata.capabilities.listModels = async () => {
-      completed = true
+      invocation += 1
       return []
     }
 
@@ -101,7 +101,7 @@ describe('hearing provider model synchronization', () => {
       hearingStore.activeTranscriptionProvider = 'openai-audio-transcription'
 
       await vi.waitFor(() => {
-        expect(completed).toBe(true)
+        expect(invocation).toBe(1)
       })
 
       hearingStore.activeTranscriptionModel = 'whisper-1'
@@ -109,6 +109,8 @@ describe('hearing provider model synchronization', () => {
       await vi.waitFor(() => {
         expect(providersStore.getProviderConfig('openai-audio-transcription')?.model).toBe('whisper-1')
       })
+      await new Promise(resolve => setTimeout(resolve, 0))
+      expect(invocation).toBe(1)
     }
     finally {
       metadata.capabilities.listModels = originalListModels
@@ -185,7 +187,7 @@ describe('hearing provider model synchronization', () => {
 
       await vi.waitFor(() => {
         expect(hearingStore.activeTranscriptionModel).toBe('comet-model')
-        expect(invocation).toBe(2)
+        expect(invocation).toBe(1)
       })
 
       pendingModels.resolve([
@@ -202,7 +204,7 @@ describe('hearing provider model synchronization', () => {
       ])
 
       await vi.waitFor(() => {
-        expect(completed).toBeGreaterThanOrEqual(2)
+        expect(completed).toBe(1)
       })
       expect(hearingStore.activeTranscriptionModel).toBe('comet-model')
       expect(providersStore.getProviderConfig('openai-audio-transcription')?.model).toBe('comet-model')
