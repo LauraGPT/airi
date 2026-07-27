@@ -33,6 +33,15 @@ export const FUNASR_TRANSCRIPTION_MODELS = [
   },
 ] satisfies ModelInfo[]
 
+export function resolveFunASRProviderSetting(
+  settings: Record<string, unknown> | undefined,
+  key: string,
+  fallback: string,
+): string {
+  const value = settings?.[key]
+  return typeof value === 'string' ? value : fallback
+}
+
 function validateFunASRConfig(config: Record<string, unknown>) {
   const errors: Error[] = []
   const baseUrl = typeof config.baseUrl === 'string' ? config.baseUrl.trim() : ''

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { buildFunASRProvider, FUNASR_TRANSCRIPTION_MODELS } from './funasr'
+import { buildFunASRProvider, FUNASR_TRANSCRIPTION_MODELS, resolveFunASRProviderSetting } from './funasr'
 
 describe('buildFunASRProvider', () => {
   // Regression coverage for https://github.com/moeru-ai/airi/issues/1906
@@ -71,5 +71,14 @@ describe('buildFunASRProvider', () => {
       model: 'sensevoice',
       prompt: 'AIRI',
     })
+  })
+
+  it('preserves explicitly cleared settings while defaulting absent values', () => {
+    expect(resolveFunASRProviderSetting(undefined, 'baseUrl', 'http://localhost:8000/v1/'))
+      .toBe('http://localhost:8000/v1/')
+    expect(resolveFunASRProviderSetting({}, 'model', 'sensevoice')).toBe('sensevoice')
+    expect(resolveFunASRProviderSetting({ baseUrl: '' }, 'baseUrl', 'http://localhost:8000/v1/'))
+      .toBe('')
+    expect(resolveFunASRProviderSetting({ model: '' }, 'model', 'sensevoice')).toBe('')
   })
 })

@@ -14,8 +14,8 @@ import {
 import { useProviderValidation } from '@proj-airi/stage-ui/composables/use-provider-validation'
 import { useHearingStore } from '@proj-airi/stage-ui/stores/modules/hearing'
 import { useProvidersStore } from '@proj-airi/stage-ui/stores/providers'
-import { FUNASR_TRANSCRIPTION_MODELS } from '@proj-airi/stage-ui/stores/providers/funasr'
-import { FieldCombobox } from '@proj-airi/ui'
+import { FUNASR_TRANSCRIPTION_MODELS, resolveFunASRProviderSetting } from '@proj-airi/stage-ui/stores/providers/funasr'
+import { Button, FieldCombobox } from '@proj-airi/ui'
 import { storeToRefs } from 'pinia'
 import { computed, onMounted } from 'vue'
 
@@ -29,7 +29,7 @@ function defaultOption(key: string): string {
 }
 
 function providerSetting(key: string, fallback: string): string {
-  return providers.value[providerId]?.[key] as string | undefined || fallback
+  return resolveFunASRProviderSetting(providers.value[providerId], key, fallback)
 }
 
 function updateProviderSetting(key: string, value: string) {
@@ -122,13 +122,14 @@ onMounted(() => providersStore.initializeProvider(providerId))
           <template #title>
             <div class="w-full flex items-center justify-between">
               <span>{{ t('settings.dialogs.onboarding.validationFailed') }}</span>
-              <button
-                type="button"
-                class="ml-2 rounded bg-red-100 px-2 py-0.5 text-xs text-red-600 font-medium transition-colors dark:bg-red-800/30 hover:bg-red-200 dark:text-red-300 dark:hover:bg-red-700/40"
+              <Button
+                class="ml-2 flex-shrink-0"
+                size="sm"
+                variant="danger"
                 @click="forceValid"
               >
                 {{ t('settings.pages.providers.common.continueAnyway') }}
-              </button>
+              </Button>
             </div>
           </template>
           <template #content>
