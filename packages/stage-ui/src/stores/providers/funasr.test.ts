@@ -1,6 +1,20 @@
+import type { TranscriptionProviderWithExtraOptions } from '@xsai-ext/providers/utils'
+
 import { describe, expect, it } from 'vitest'
 
 import { buildFunASRProvider, FUNASR_TRANSCRIPTION_MODELS, resolveFunASRProviderSetting } from './funasr'
+
+interface TestTranscriptionOptions {
+  language?: string
+  prompt?: string
+}
+
+function expectTranscriptionProvider(
+  provider: unknown,
+): asserts provider is TranscriptionProviderWithExtraOptions<string, TestTranscriptionOptions> {
+  if (typeof provider !== 'object' || provider === null || !('transcription' in provider) || typeof provider.transcription !== 'function')
+    throw new TypeError('Expected a transcription provider')
+}
 
 describe('buildFunASRProvider', () => {
   // Regression coverage for https://github.com/moeru-ai/airi/issues/1906
@@ -26,8 +40,8 @@ describe('buildFunASRProvider', () => {
     await expect(metadata.capabilities.listModels?.({})).resolves.toEqual(FUNASR_TRANSCRIPTION_MODELS)
 
     const provider = await metadata.createProvider(metadata.defaultOptions?.() || {})
-    expect('transcription' in provider).toBe(true)
-    expect((provider as any).transcription('sensevoice')).toMatchObject({
+    expectTranscriptionProvider(provider)
+    expect(provider.transcription('sensevoice')).toMatchObject({
       apiKey: 'not-needed',
       baseURL: 'http://localhost:8000/v1/',
       model: 'sensevoice',
@@ -63,8 +77,8 @@ describe('buildFunASRProvider', () => {
       model: 'sensevoice',
     })
 
-    expect('transcription' in provider).toBe(true)
-    expect((provider as any).transcription('sensevoice', { language: 'zh', prompt: 'AIRI' })).toEqual({
+    expectTranscriptionProvider(provider)
+    expect(provider.transcription('sensevoice', { language: 'zh', prompt: 'AIRI' })).toEqual({
       apiKey: 'gateway-secret',
       baseURL: 'http://localhost:8000/v1/',
       language: 'zh',

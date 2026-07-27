@@ -2774,28 +2774,37 @@ export const useProvidersStore = defineStore('providers', () => {
     return JSON.stringify(connectionConfig)
   }
 
+  const previousProviderConfigHashes = ref<Record<string, string>>({})
   const previousCredentialHashes = ref<Record<string, string>>({})
 
-  // Watch for connection changes and refetch models accordingly.
+  // Recreate providers for any config change, but refresh model lists only when
+  // connection settings change. Model selection itself must not trigger a refetch.
   watch(providerCredentials, (newCreds) => {
     const changedProviders: string[] = []
+    const changedConnections: string[] = []
 
     for (const providerId in newCreds) {
       const currentConfig = newCreds[providerId]
-      const currentHash = serializeProviderConnectionConfig(currentConfig)
-      const previousHash = previousCredentialHashes.value[providerId]
+      const currentConfigHash = JSON.stringify(currentConfig)
+      const currentConnectionHash = serializeProviderConnectionConfig(currentConfig)
 
-      if (currentHash !== previousHash) {
+      if (currentConfigHash !== previousProviderConfigHashes.value[providerId]) {
         changedProviders.push(providerId)
-        previousCredentialHashes.value[providerId] = currentHash
+        previousProviderConfigHashes.value[providerId] = currentConfigHash
+      }
+
+      if (currentConnectionHash !== previousCredentialHashes.value[providerId]) {
+        changedConnections.push(providerId)
+        previousCredentialHashes.value[providerId] = currentConnectionHash
       }
     }
 
     for (const providerId of changedProviders) {
-      // Since credentials changed, dispose the cached instance so new creds take effect.
+      // Provider factories may capture model or connection settings at creation time.
       void disposeProviderInstance(providerId)
+    }
 
-      // If the provider is configured and has the capability, refetch its models
+    for (const providerId of changedConnections) {
       if (providerRuntimeState.value[providerId]?.isConfigured && providerMetadata[providerId]?.capabilities.listModels) {
         fetchModelsForProvider(providerId)
       }

@@ -1,3 +1,5 @@
+import type { SpeechProvider } from '@xsai-ext/providers/utils'
+
 import type { ModelInfo } from '../providers'
 
 import { createPinia, setActivePinia } from 'pinia'
@@ -78,6 +80,27 @@ describe('hearing provider model synchronization', () => {
 
     await vi.waitFor(() => {
       expect(providersStore.getProviderConfig('mimo-audio-transcription')?.model).toBe('mimo-v2.5')
+    })
+  })
+
+  it('recreates a cached provider when its persisted model changes', async () => {
+    const providersStore = useProvidersStore()
+    providersStore.providers['mimo-audio-speech'] = {
+      apiKey: 'test-key',
+      baseUrl: 'https://api.xiaomimimo.com/v1/',
+      model: 'mimo-v2-omni',
+    }
+    await new Promise(resolve => setTimeout(resolve, 0))
+
+    const firstProvider = await providersStore.getProviderInstance<SpeechProvider>('mimo-audio-speech')
+    expect(firstProvider.speech('unused').model).toBe('mimo-v2-omni')
+
+    providersStore.providers['mimo-audio-speech'].model = 'mimo-v2.5-tts'
+
+    await vi.waitFor(async () => {
+      const currentProvider = await providersStore.getProviderInstance<SpeechProvider>('mimo-audio-speech')
+      expect(currentProvider).not.toBe(firstProvider)
+      expect(currentProvider.speech('unused').model).toBe('mimo-v2.5-tts')
     })
   })
 
