@@ -6,6 +6,7 @@ import {
   normalizeGeneratedTranscriptionText,
   resolveActiveTranscriptionModel,
   resolveActiveTranscriptionProviderError,
+  resolveProviderConfiguredTranscriptionModel,
   resolveStreamTranscriptionExecutor,
   resolveTranscriptionFileName,
   resolveTranscriptionProviderOptions,
@@ -84,6 +85,28 @@ describe('resolveActiveTranscriptionModel', () => {
    */
   it('prefers the explicit hearing model over the provider config model', () => {
     expect(resolveActiveTranscriptionModel('whisper-1', { model: 'FunAudioLLM/SenseVoiceSmall' })).toBe('whisper-1')
+  })
+})
+
+describe('resolveProviderConfiguredTranscriptionModel', () => {
+  it('uses the FunASR default when provider settings are not initialized', () => {
+    expect(resolveProviderConfiguredTranscriptionModel('funasr-audio-transcription')).toBe('sensevoice')
+  })
+
+  it('uses the configured FunASR model after the provider setting changes', () => {
+    expect(resolveProviderConfiguredTranscriptionModel('funasr-audio-transcription', { model: 'paraformer' })).toBe('paraformer')
+  })
+
+  it('preserves an explicitly cleared FunASR model', () => {
+    expect(resolveProviderConfiguredTranscriptionModel('funasr-audio-transcription', { model: '' })).toBe('')
+  })
+
+  it('keeps the existing OpenAI-compatible model default', () => {
+    expect(resolveProviderConfiguredTranscriptionModel('openai-compatible-audio-transcription')).toBe('whisper-1')
+  })
+
+  it('does not synchronize models for providers without provider-scoped model settings', () => {
+    expect(resolveProviderConfiguredTranscriptionModel('browser-web-speech-api')).toBeUndefined()
   })
 })
 

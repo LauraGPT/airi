@@ -280,6 +280,31 @@ export function resolveActiveTranscriptionModel(activeModel: string, providerCon
   return modelFromProviderConfig
 }
 
+const providerScopedTranscriptionModelDefaults = {
+  'funasr-audio-transcription': 'sensevoice',
+  'openai-compatible-audio-transcription': 'whisper-1',
+} as const
+
+/**
+ * Resolves the provider-scoped model that should be mirrored into Hearing state.
+ *
+ * Explicit empty strings are preserved so clearing a required provider setting also
+ * clears the persisted Hearing model instead of silently restoring a default.
+ */
+export function resolveProviderConfiguredTranscriptionModel(
+  providerId: string,
+  providerConfig?: Record<string, unknown>,
+): string | undefined {
+  if (!(providerId in providerScopedTranscriptionModelDefaults))
+    return undefined
+
+  const configuredModel = providerConfig?.model
+  if (typeof configuredModel === 'string')
+    return configuredModel
+
+  return providerScopedTranscriptionModelDefaults[providerId as keyof typeof providerScopedTranscriptionModelDefaults]
+}
+
 /**
  * Resolves extra transcription request options from provider config and UI locale.
  *
@@ -326,6 +351,28 @@ export const useHearingStore = defineStore('hearing-store', () => {
   const autoSendDelay = useLocalStorageManualReset<number>('settings/hearing/auto-send-delay', 2000) // Default 2 seconds
   const confidenceThreshold = useLocalStorageManualReset<number>('settings/hearing/confidence-threshold', CONFIDENCE_THRESHOLD_DISABLED)
   const verboseJsonNotSupported = ref(false)
+
+  const providerConfiguredTranscriptionModel = computed(() => {
+    const providerId = activeTranscriptionProvider.value
+    if (!providerId)
+      return undefined
+
+    return resolveProviderConfiguredTranscriptionModel(providerId, providersStore.getProviderConfig(providerId))
+  })
+
+  // Provider settings and Hearing state are persisted separately; keep their active model aligned.
+  watch(
+    [activeTranscriptionProvider, providerConfiguredTranscriptionModel],
+    ([providerId, configuredModel]) => {
+      if (configuredModel === undefined)
+        return
+
+      activeTranscriptionModel.value = configuredModel
+      if (providerId === 'openai-compatible-audio-transcription')
+        activeCustomModelName.value = configuredModel
+    },
+    { immediate: true },
+  )
 
   watch(activeTranscriptionProvider, () => {
     verboseJsonNotSupported.value = false
