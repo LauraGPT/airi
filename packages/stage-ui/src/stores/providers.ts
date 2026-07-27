@@ -2640,18 +2640,29 @@ export const useProvidersStore = defineStore('providers', () => {
     await refreshListedProviderValidation()
   }
 
+  const modelFetchRevisions = new Map<string, number>()
+
   // Function to fetch models for a specific provider
   async function fetchModelsForProvider(providerId: string) {
+    const revision = (modelFetchRevisions.get(providerId) ?? 0) + 1
+    modelFetchRevisions.set(providerId, revision)
+    const isCurrent = () => modelFetchRevisions.get(providerId) === revision
     const startedAt = Date.now()
     const metadata = providerMetadata[providerId]
-    if (!metadata)
+    const runtimeState = providerRuntimeState.value[providerId]
+    if (!metadata) {
+      if (runtimeState)
+        runtimeState.isLoadingModels = false
       return []
+    }
 
     const config = providerCredentials.value[providerId]
-    if (!config && metadata.requiresCredentials !== false)
+    if (!config && metadata.requiresCredentials !== false) {
+      if (runtimeState)
+        runtimeState.isLoadingModels = false
       return []
+    }
 
-    const runtimeState = providerRuntimeState.value[providerId]
     if (runtimeState) {
       runtimeState.isLoadingModels = true
       runtimeState.modelLoadError = null
@@ -2659,6 +2670,8 @@ export const useProvidersStore = defineStore('providers', () => {
 
     try {
       const models = metadata.capabilities.listModels ? await metadata.capabilities.listModels(config || {}) : []
+      if (!isCurrent())
+        return []
 
       // Transform and store the models
       if (runtimeState) {
@@ -2688,6 +2701,9 @@ export const useProvidersStore = defineStore('providers', () => {
       return []
     }
     catch (error) {
+      if (!isCurrent())
+        return []
+
       console.error(`Error fetching models for ${providerId}:`, error)
       if (runtimeState) {
         runtimeState.modelLoadError = errorMessageFrom(error) ?? 'Unknown error'
@@ -2701,7 +2717,7 @@ export const useProvidersStore = defineStore('providers', () => {
       return []
     }
     finally {
-      if (runtimeState) {
+      if (runtimeState && isCurrent()) {
         runtimeState.isLoadingModels = false
       }
     }

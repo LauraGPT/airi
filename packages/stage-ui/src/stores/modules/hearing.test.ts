@@ -123,6 +123,16 @@ describe('resolveTranscriptionModelOnProviderChange', () => {
     )).toBe('whisper-1')
   })
 
+  it('uses the destination provider configured model before its first listed model', () => {
+    expect(resolveTranscriptionModelOnProviderChange(
+      'mimo-audio-transcription',
+      { model: 'mimo-v2.5' },
+      [{ id: 'mimo-v2-omni' }, { id: 'mimo-v2.5' }],
+      'funasr-audio-transcription',
+      'sensevoice',
+    )).toBe('mimo-v2.5')
+  })
+
   it('selects the official provider model instead of retaining a FunASR model', () => {
     expect(resolveTranscriptionModelOnProviderChange(
       'official-provider-transcription',

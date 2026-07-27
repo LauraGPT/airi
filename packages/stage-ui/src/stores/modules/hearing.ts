@@ -323,6 +323,10 @@ export function resolveTranscriptionModelOnProviderChange(
   if (configuredModel !== undefined)
     return configuredModel
 
+  const modelFromProviderConfig = typeof providerConfig?.model === 'string' ? providerConfig.model.trim() : ''
+  if (modelFromProviderConfig)
+    return modelFromProviderConfig
+
   if (previousProviderId === undefined && providerModels.some(model => model.id === activeModel))
     return activeModel
 
@@ -429,7 +433,10 @@ export const useHearingStore = defineStore('hearing-store', () => {
       activeCustomModelName.value = model
   }, { flush: 'sync' })
 
+  let providerChangeRevision = 0
+
   watch(activeTranscriptionProvider, async (providerId, previousProviderId) => {
+    const revision = ++providerChangeRevision
     verboseJsonNotSupported.value = false
 
     if (!providerId) {
@@ -450,7 +457,7 @@ export const useHearingStore = defineStore('hearing-store', () => {
       activeTranscriptionModel.value = ''
 
     await loadModelsForProvider(providerId)
-    if (activeTranscriptionProvider.value !== providerId)
+    if (revision !== providerChangeRevision || activeTranscriptionProvider.value !== providerId)
       return
 
     activeTranscriptionModel.value = resolveTranscriptionModelOnProviderChange(
