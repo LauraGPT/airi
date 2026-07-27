@@ -2629,7 +2629,15 @@ export const useProvidersStore = defineStore('providers', () => {
     unmarkProviderAdded(providerId)
   }
 
+  const modelFetchRevisions = new Map<string, number>()
+  const modelFetchPromises = new Map<string, Promise<ModelInfo[]>>()
+  let modelFetchEpoch = 0
+
   async function resetProviderSettings() {
+    // Reset is a lifecycle boundary: stale requests must not repopulate the new provider state.
+    modelFetchEpoch += 1
+    modelFetchRevisions.clear()
+    modelFetchPromises.clear()
     providerCredentials.value = {}
     addedProviders.value = {}
     providerRuntimeState.value = {}
@@ -2640,26 +2648,30 @@ export const useProvidersStore = defineStore('providers', () => {
     await refreshListedProviderValidation()
   }
 
-  const modelFetchRevisions = new Map<string, number>()
-  const modelFetchPromises = new Map<string, Promise<ModelInfo[]>>()
-
   // Function to fetch models for a specific provider
   function fetchModelsForProvider(providerId: string) {
+    const epoch = modelFetchEpoch
     const revision = (modelFetchRevisions.get(providerId) ?? 0) + 1
     modelFetchRevisions.set(providerId, revision)
-    const promise = fetchModelsForProviderRevision(providerId, revision)
+    const promise = fetchModelsForProviderRevision(providerId, revision, epoch)
     modelFetchPromises.set(providerId, promise)
     return promise
   }
 
-  async function waitForCurrentModelFetch(providerId: string, supersededRevision: number): Promise<ModelInfo[]> {
+  async function waitForCurrentModelFetch(providerId: string, supersededRevision: number, epoch: number): Promise<ModelInfo[]> {
     while (true) {
+      if (modelFetchEpoch !== epoch)
+        return []
+
       const currentRevision = modelFetchRevisions.get(providerId)
       const currentPromise = modelFetchPromises.get(providerId)
       if (currentRevision === undefined || currentRevision === supersededRevision || !currentPromise)
         return []
 
       const models = await currentPromise
+      if (modelFetchEpoch !== epoch)
+        return []
+
       if (modelFetchRevisions.get(providerId) === currentRevision)
         return models
 
@@ -2667,8 +2679,8 @@ export const useProvidersStore = defineStore('providers', () => {
     }
   }
 
-  async function fetchModelsForProviderRevision(providerId: string, revision: number): Promise<ModelInfo[]> {
-    const isCurrent = () => modelFetchRevisions.get(providerId) === revision
+  async function fetchModelsForProviderRevision(providerId: string, revision: number, epoch: number): Promise<ModelInfo[]> {
+    const isCurrent = () => modelFetchEpoch === epoch && modelFetchRevisions.get(providerId) === revision
     const startedAt = Date.now()
     const metadata = providerMetadata[providerId]
     const runtimeState = providerRuntimeState.value[providerId]
@@ -2693,7 +2705,7 @@ export const useProvidersStore = defineStore('providers', () => {
     try {
       const models = metadata.capabilities.listModels ? await metadata.capabilities.listModels(config || {}) : []
       if (!isCurrent())
-        return await waitForCurrentModelFetch(providerId, revision)
+        return await waitForCurrentModelFetch(providerId, revision, epoch)
 
       // Transform and store the models
       if (runtimeState) {
@@ -2724,7 +2736,7 @@ export const useProvidersStore = defineStore('providers', () => {
     }
     catch (error) {
       if (!isCurrent())
-        return await waitForCurrentModelFetch(providerId, revision)
+        return await waitForCurrentModelFetch(providerId, revision, epoch)
 
       console.error(`Error fetching models for ${providerId}:`, error)
       if (runtimeState) {

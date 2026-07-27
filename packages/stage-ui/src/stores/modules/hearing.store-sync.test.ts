@@ -238,6 +238,79 @@ describe('hearing provider model synchronization', () => {
     }
   })
 
+  it('does not restore a list-backed provider after settings reset during model loading', async () => {
+    const providersStore = useProvidersStore()
+    providersStore.providers['openai-audio-transcription'] = {
+      apiKey: 'test-key',
+      baseUrl: 'https://api.openai.com/v1/',
+    }
+
+    const metadata = providersStore.providerMetadata['openai-audio-transcription']
+    const originalListModels = metadata.capabilities.listModels
+    const beforeResetModels = deferred<ModelInfo[]>()
+    const afterResetModels = deferred<ModelInfo[]>()
+    let invocation = 0
+    let completed = 0
+    metadata.capabilities.listModels = async () => {
+      invocation += 1
+      const models = await (invocation === 1 ? beforeResetModels.promise : afterResetModels.promise)
+      completed += 1
+      return models
+    }
+
+    try {
+      const hearingStore = useHearingStore()
+      hearingStore.activeTranscriptionProvider = 'openai-audio-transcription'
+
+      await vi.waitFor(() => {
+        expect(invocation).toBe(1)
+      })
+
+      await providersStore.resetProviderSettings()
+      const resetConfig = { ...providersStore.getProviderConfig('openai-audio-transcription') }
+      expect(resetConfig).not.toHaveProperty('model')
+
+      const afterResetFetch = providersStore.fetchModelsForProvider('openai-audio-transcription')
+      await vi.waitFor(() => {
+        expect(invocation).toBe(2)
+      })
+
+      beforeResetModels.resolve([{
+        id: 'stale-transcription-model',
+        name: 'Stale transcription model',
+        provider: 'openai-audio-transcription',
+      }])
+      await vi.waitFor(() => {
+        expect(completed).toBe(1)
+      })
+      await new Promise(resolve => setTimeout(resolve, 0))
+
+      expect(hearingStore.activeTranscriptionModel).toBe('')
+      expect(providersStore.getProviderConfig('openai-audio-transcription')).toEqual(resetConfig)
+
+      afterResetModels.resolve([{
+        id: 'fresh-transcription-model',
+        name: 'Fresh transcription model',
+        provider: 'openai-audio-transcription',
+      }])
+      await afterResetFetch
+      await vi.waitFor(() => {
+        expect(completed).toBe(2)
+      })
+
+      expect(hearingStore.activeTranscriptionModel).toBe('')
+      expect(providersStore.getProviderConfig('openai-audio-transcription')).toEqual(resetConfig)
+      expect(providersStore.persistedTranscriptionProvidersMetadata).not.toContainEqual(
+        expect.objectContaining({ id: 'openai-audio-transcription' }),
+      )
+    }
+    finally {
+      beforeResetModels.resolve([])
+      afterResetModels.resolve([])
+      metadata.capabilities.listModels = originalListModels
+    }
+  })
+
   it('does not clear a configured model while switching to its provider', async () => {
     const providersStore = useProvidersStore()
     providersStore.providers['openai-audio-transcription'] = {
