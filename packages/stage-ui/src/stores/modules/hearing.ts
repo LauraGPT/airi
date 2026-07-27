@@ -311,6 +311,7 @@ export function resolveProviderConfiguredTranscriptionModel(
  * Provider-scoped settings take precedence. During initial hydration, a persisted
  * model is retained when the provider still lists it; provider transitions select
  * the destination provider's first model instead of carrying stale state across.
+ * Providers without model listing preserve an initial manually entered model.
  */
 export function resolveTranscriptionModelOnProviderChange(
   providerId: string,
@@ -318,6 +319,7 @@ export function resolveTranscriptionModelOnProviderChange(
   providerModels: readonly { id: string }[],
   previousProviderId: string | undefined,
   activeModel: string,
+  supportsModelListing = false,
 ): string {
   const configuredModel = resolveProviderConfiguredTranscriptionModel(providerId, providerConfig)
   if (configuredModel !== undefined)
@@ -330,7 +332,7 @@ export function resolveTranscriptionModelOnProviderChange(
   if (listedModel)
     return listedModel
 
-  return previousProviderId === undefined ? activeModel : ''
+  return previousProviderId === undefined && !supportsModelListing ? activeModel : ''
 }
 
 /**
@@ -464,6 +466,7 @@ export const useHearingStore = defineStore('hearing-store', () => {
       providerModels,
       previousProviderId,
       previousActiveModel,
+      supportsListing,
     )
   }, { immediate: true })
 

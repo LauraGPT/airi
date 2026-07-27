@@ -130,6 +130,17 @@ describe('resolveTranscriptionModelOnProviderChange', () => {
     )).toBe('whisper-1')
   })
 
+  it('does not restore an unverified persisted model when initial model loading fails', () => {
+    expect(resolveTranscriptionModelOnProviderChange(
+      'openai-audio-transcription',
+      undefined,
+      [],
+      undefined,
+      'persisted-stale-model',
+      true,
+    )).toBe('')
+  })
+
   it('uses the destination provider configured model before its first listed model', () => {
     expect(resolveTranscriptionModelOnProviderChange(
       'mimo-audio-transcription',
