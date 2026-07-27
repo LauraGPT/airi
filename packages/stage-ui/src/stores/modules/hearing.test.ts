@@ -7,8 +7,10 @@ import {
   resolveActiveTranscriptionModel,
   resolveActiveTranscriptionProviderError,
   resolveProviderConfiguredTranscriptionModel,
+  resolveProviderConfigWithTranscriptionModel,
   resolveStreamTranscriptionExecutor,
   resolveTranscriptionFileName,
+  resolveTranscriptionModelOnProviderChange,
   resolveTranscriptionProviderOptions,
 } from './hearing'
 
@@ -107,6 +109,64 @@ describe('resolveProviderConfiguredTranscriptionModel', () => {
 
   it('does not synchronize models for providers without provider-scoped model settings', () => {
     expect(resolveProviderConfiguredTranscriptionModel('browser-web-speech-api')).toBeUndefined()
+  })
+})
+
+describe('resolveTranscriptionModelOnProviderChange', () => {
+  it('selects the official provider model instead of retaining a FunASR model', () => {
+    expect(resolveTranscriptionModelOnProviderChange(
+      'official-provider-transcription',
+      undefined,
+      [{ id: 'auto' }],
+      'funasr-audio-transcription',
+      'paraformer',
+    )).toBe('auto')
+  })
+
+  it('clears a stale model when the destination provider has no selectable model', () => {
+    expect(resolveTranscriptionModelOnProviderChange(
+      'provider-without-models',
+      undefined,
+      [],
+      'funasr-audio-transcription',
+      'paraformer',
+    )).toBe('')
+  })
+
+  it('preserves an initial manual model when the provider has no model list', () => {
+    expect(resolveTranscriptionModelOnProviderChange(
+      'provider-without-models',
+      undefined,
+      [],
+      undefined,
+      'custom-model',
+    )).toBe('custom-model')
+  })
+})
+
+describe('resolveProviderConfigWithTranscriptionModel', () => {
+  it('persists a Hearing model selection into the FunASR provider config', () => {
+    expect(resolveProviderConfigWithTranscriptionModel(
+      'funasr-audio-transcription',
+      'fun-asr-nano',
+      { baseUrl: 'http://localhost:8000/v1/', model: 'sensevoice' },
+    )).toEqual({ baseUrl: 'http://localhost:8000/v1/', model: 'fun-asr-nano' })
+  })
+
+  it('does not rewrite the provider config when the model is already synchronized', () => {
+    expect(resolveProviderConfigWithTranscriptionModel(
+      'funasr-audio-transcription',
+      'paraformer',
+      { model: 'paraformer' },
+    )).toBeUndefined()
+  })
+
+  it('does not persist a global model into providers without scoped model settings', () => {
+    expect(resolveProviderConfigWithTranscriptionModel(
+      'official-provider-transcription',
+      'auto',
+      {},
+    )).toBeUndefined()
   })
 })
 

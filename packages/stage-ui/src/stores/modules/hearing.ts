@@ -306,6 +306,48 @@ export function resolveProviderConfiguredTranscriptionModel(
 }
 
 /**
+ * Resolves the model to use after changing transcription providers.
+ *
+ * Provider-scoped settings take precedence, followed by the destination provider's
+ * first listed model. An initial manual model is retained only when no transition
+ * occurred and the provider cannot supply a model choice.
+ */
+export function resolveTranscriptionModelOnProviderChange(
+  providerId: string,
+  providerConfig: Record<string, unknown> | undefined,
+  providerModels: readonly { id: string }[],
+  previousProviderId: string | undefined,
+  activeModel: string,
+): string {
+  const configuredModel = resolveProviderConfiguredTranscriptionModel(providerId, providerConfig)
+  if (configuredModel !== undefined)
+    return configuredModel
+
+  const listedModel = providerModels.find(model => model.id)?.id
+  if (listedModel)
+    return listedModel
+
+  return previousProviderId === undefined ? activeModel : ''
+}
+
+/**
+ * Returns an updated provider config when Hearing changes a provider-scoped model.
+ */
+export function resolveProviderConfigWithTranscriptionModel(
+  providerId: string,
+  model: string,
+  providerConfig?: Record<string, unknown>,
+): Record<string, unknown> | undefined {
+  if (!(providerId in providerScopedTranscriptionModelDefaults) || providerConfig?.model === model)
+    return undefined
+
+  return {
+    ...providerConfig,
+    model,
+  }
+}
+
+/**
  * Resolves extra transcription request options from provider config and UI locale.
  *
  * Use when:
@@ -360,23 +402,62 @@ export const useHearingStore = defineStore('hearing-store', () => {
     return resolveProviderConfiguredTranscriptionModel(providerId, providersStore.getProviderConfig(providerId))
   })
 
-  // Provider settings and Hearing state are persisted separately; keep their active model aligned.
-  watch(
-    [activeTranscriptionProvider, providerConfiguredTranscriptionModel],
-    ([providerId, configuredModel]) => {
-      if (configuredModel === undefined)
-        return
+  // Provider settings and Hearing state are persisted separately; keep scoped models aligned both ways.
+  watch(providerConfiguredTranscriptionModel, (configuredModel) => {
+    if (configuredModel === undefined)
+      return
 
-      activeTranscriptionModel.value = configuredModel
-      if (providerId === 'openai-compatible-audio-transcription')
-        activeCustomModelName.value = configuredModel
-    },
-    { immediate: true },
-  )
+    activeTranscriptionModel.value = configuredModel
+    if (activeTranscriptionProvider.value === 'openai-compatible-audio-transcription')
+      activeCustomModelName.value = configuredModel
+  }, { flush: 'sync' })
 
-  watch(activeTranscriptionProvider, () => {
+  watch(activeTranscriptionModel, (model) => {
+    const providerId = activeTranscriptionProvider.value
+    const updatedConfig = resolveProviderConfigWithTranscriptionModel(
+      providerId,
+      model,
+      providersStore.getProviderConfig(providerId),
+    )
+    if (updatedConfig)
+      providersStore.providers[providerId] = updatedConfig
+
+    if (providerId === 'openai-compatible-audio-transcription')
+      activeCustomModelName.value = model
+  }, { flush: 'sync' })
+
+  watch(activeTranscriptionProvider, async (providerId, previousProviderId) => {
     verboseJsonNotSupported.value = false
-  })
+
+    if (!providerId) {
+      activeTranscriptionModel.value = ''
+      return
+    }
+
+    const providerConfig = providersStore.getProviderConfig(providerId)
+    const configuredModel = resolveProviderConfiguredTranscriptionModel(providerId, providerConfig)
+    if (configuredModel !== undefined) {
+      activeTranscriptionModel.value = configuredModel
+      return
+    }
+
+    const previousActiveModel = activeTranscriptionModel.value
+    const supportsListing = providersStore.findProviderMetadata(providerId)?.capabilities.listModels !== undefined
+    if (supportsListing || previousProviderId !== undefined)
+      activeTranscriptionModel.value = ''
+
+    await loadModelsForProvider(providerId)
+    if (activeTranscriptionProvider.value !== providerId)
+      return
+
+    activeTranscriptionModel.value = resolveTranscriptionModelOnProviderChange(
+      providerId,
+      providerConfig,
+      providersStore.getModelsForProvider(providerId),
+      previousProviderId,
+      previousActiveModel,
+    )
+  }, { immediate: true })
 
   // Computed properties
   const availableProvidersMetadata = computed(() => allAudioTranscriptionProvidersMetadata.value)

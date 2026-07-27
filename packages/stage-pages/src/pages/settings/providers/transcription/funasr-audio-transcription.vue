@@ -56,7 +56,7 @@ const model = computed({
 const playgroundConfigured = computed(() => Boolean(baseUrl.value && model.value))
 
 async function handleGenerateTranscription(file: File) {
-  const provider = await providersStore.getProviderInstance<TranscriptionProviderWithExtraOptions<string, any>>(providerId)
+  const provider = await providersStore.getProviderInstance<TranscriptionProviderWithExtraOptions<string, Record<string, unknown>>>(providerId)
   if (!provider)
     throw new Error('Failed to initialize FunASR transcription provider')
 
