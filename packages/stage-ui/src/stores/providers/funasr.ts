@@ -6,6 +6,12 @@ import { buildOpenAICompatibleProvider } from './openai-compatible-builder'
 
 type FunASRProviderCreator = Parameters<typeof buildOpenAICompatibleProvider>[0]['creator']
 
+/**
+ * Canonical fixed model catalog for the FunASR transcription provider.
+ *
+ * Provider metadata and settings UI consumers may read or map this catalog.
+ * Consumers must not mutate it; copy entries before returning or modifying them.
+ */
 export const FUNASR_TRANSCRIPTION_MODELS = [
   {
     id: 'sensevoice',
