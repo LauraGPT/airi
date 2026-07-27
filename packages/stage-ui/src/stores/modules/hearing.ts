@@ -342,9 +342,11 @@ export function resolveProviderConfigWithTranscriptionModel(
   providerId: string,
   model: string,
   providerConfig?: Record<string, unknown>,
+  supportsModelListing = false,
 ): Record<string, unknown> | undefined {
   const ownsModelSetting = providerId in providerScopedTranscriptionModelDefaults
     || Object.hasOwn(providerConfig ?? {}, 'model')
+    || (supportsModelListing && model.trim() !== '')
   if (!ownsModelSetting || providerConfig?.model === model)
     return undefined
 
@@ -421,10 +423,12 @@ export const useHearingStore = defineStore('hearing-store', () => {
 
   watch(activeTranscriptionModel, (model) => {
     const providerId = activeTranscriptionProvider.value
+    const supportsModelListing = providersStore.findProviderMetadata(providerId)?.capabilities.listModels !== undefined
     const updatedConfig = resolveProviderConfigWithTranscriptionModel(
       providerId,
       model,
       providersStore.getProviderConfig(providerId),
+      supportsModelListing,
     )
     if (updatedConfig)
       providersStore.providers[providerId] = updatedConfig

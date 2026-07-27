@@ -81,6 +81,40 @@ describe('hearing provider model synchronization', () => {
     })
   })
 
+  it('persists a model selected for a list-backed provider without an initial model setting', async () => {
+    const providersStore = useProvidersStore()
+    providersStore.providers['openai-audio-transcription'] = {
+      apiKey: 'test-key',
+      baseUrl: 'https://api.openai.com/v1/',
+    }
+
+    const metadata = providersStore.providerMetadata['openai-audio-transcription']
+    const originalListModels = metadata.capabilities.listModels
+    let completed = false
+    metadata.capabilities.listModels = async () => {
+      completed = true
+      return []
+    }
+
+    try {
+      const hearingStore = useHearingStore()
+      hearingStore.activeTranscriptionProvider = 'openai-audio-transcription'
+
+      await vi.waitFor(() => {
+        expect(completed).toBe(true)
+      })
+
+      hearingStore.activeTranscriptionModel = 'whisper-1'
+
+      await vi.waitFor(() => {
+        expect(providersStore.getProviderConfig('openai-audio-transcription')?.model).toBe('whisper-1')
+      })
+    }
+    finally {
+      metadata.capabilities.listModels = originalListModels
+    }
+  })
+
   it('does not clear a configured model while switching to its provider', async () => {
     const providersStore = useProvidersStore()
     providersStore.providers['openai-audio-transcription'] = {

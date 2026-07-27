@@ -207,6 +207,15 @@ describe('resolveProviderConfigWithTranscriptionModel', () => {
     )).toEqual({ baseUrl: 'https://api.xiaomimimo.com/v1/', model: 'mimo-v2.5' })
   })
 
+  it('persists a model selection for a list-backed provider before its config owns a model', () => {
+    expect(resolveProviderConfigWithTranscriptionModel(
+      'openai-audio-transcription',
+      'whisper-1',
+      { baseUrl: 'https://api.openai.com/v1/' },
+      true,
+    )).toEqual({ baseUrl: 'https://api.openai.com/v1/', model: 'whisper-1' })
+  })
+
   it('does not persist a global model into providers without scoped model settings', () => {
     expect(resolveProviderConfigWithTranscriptionModel(
       'official-provider-transcription',
