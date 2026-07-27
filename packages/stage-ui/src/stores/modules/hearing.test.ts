@@ -151,6 +151,17 @@ describe('resolveTranscriptionModelOnProviderChange', () => {
     )).toBe('mimo-v2.5')
   })
 
+  it('uses a list-backed provider displayed default before its first listed model', () => {
+    expect(resolveTranscriptionModelOnProviderChange(
+      'openai-audio-transcription',
+      { baseUrl: 'https://api.openai.com/v1/' },
+      [{ id: 'gpt-4o-transcribe' }, { id: 'whisper-1' }],
+      'funasr-audio-transcription',
+      'sensevoice',
+      true,
+    )).toBe('whisper-1')
+  })
+
   it('selects the official provider model instead of retaining a FunASR model', () => {
     expect(resolveTranscriptionModelOnProviderChange(
       'official-provider-transcription',

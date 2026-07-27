@@ -285,6 +285,10 @@ const providerScopedTranscriptionModelDefaults = {
   'openai-compatible-audio-transcription': 'whisper-1',
 } as const
 
+const providerListedTranscriptionModelDefaults = {
+  'openai-audio-transcription': 'whisper-1',
+} as const
+
 /**
  * Resolves the provider-owned model that should be mirrored into Hearing state.
  *
@@ -327,6 +331,10 @@ export function resolveTranscriptionModelOnProviderChange(
 
   if (previousProviderId === undefined && providerModels.some(model => model.id === activeModel))
     return activeModel
+
+  const listedDefaultModel = providerListedTranscriptionModelDefaults[providerId as keyof typeof providerListedTranscriptionModelDefaults]
+  if (listedDefaultModel && providerModels.some(model => model.id === listedDefaultModel))
+    return listedDefaultModel
 
   const listedModel = providerModels.find(model => model.id)?.id
   if (listedModel)
