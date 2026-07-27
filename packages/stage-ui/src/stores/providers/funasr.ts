@@ -33,6 +33,14 @@ export const FUNASR_TRANSCRIPTION_MODELS = [
   },
 ] satisfies ModelInfo[]
 
+/**
+ * Resolves a persisted FunASR setting without replacing an intentionally cleared string.
+ *
+ * @param settings Persisted provider settings, if available.
+ * @param key Setting name to resolve.
+ * @param fallback Value used when the setting is absent or is not a string.
+ * @returns The persisted string, including an empty string, or the fallback.
+ */
 export function resolveFunASRProviderSetting(
   settings: Record<string, unknown> | undefined,
   key: string,
