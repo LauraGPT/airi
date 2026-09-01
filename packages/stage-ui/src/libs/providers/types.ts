@@ -221,6 +221,9 @@ export interface ProviderDefinition<TConfig extends any = any> {
     hearing?: () => Promise<{ default: Component }>
   }
 
+  /** Optional settings route used by the provider catalogue. */
+  settingsPath?: string
+
   /** Builds the validation schema and its UI metadata for the current draft. */
   createProviderConfig: (contextOptions: ProviderConfigContext<TConfig>) => MaybePromise<$ZodType<TConfig>>
   onboardingFields?: (ctx: { t: ComposerTranslation }) => MaybePromise<ProviderOnboardingField[]>
