@@ -3,6 +3,7 @@ import type { ComposerTranslation } from 'vue-i18n'
 import { describe, expect, it } from 'vitest'
 import { z } from 'zod'
 
+import { selectProviderMetadata } from '../metadata'
 import { providerAliyunNlsTranscription } from './aliyun-nls'
 import { providerBrowserWebSpeechApi } from './browser-web-speech-api'
 import { providerElevenLabs } from './elevenlabs'
@@ -13,7 +14,6 @@ import {
   providerBrowserLocalAudioTranscription,
   providerFunASRAudioTranscription,
 } from './local-audio'
-import { selectProviderMetadata } from '../metadata'
 import { getDefinedProvider } from './registry'
 import { providerSpeechNoop } from './speech-noop'
 
