@@ -1038,8 +1038,9 @@ export const useProviderStore = defineStore('provider', () => {
     return authStore.isAuthenticated && !!authStore.token
   }
 
-  function isProviderConfiguredForModule(providerId: string) {
-    return providerConfigStore.configuredProviders[providerId]
+  function isProviderUsableForModule(providerId: string) {
+    const status = providerConfigStore.providers[providerId]?.status
+    return (status === 'configured' || status === 'bypassed')
       && (providerConfiguredBy(providerId) !== 'authentication' || authStore.isAuthenticated)
   }
 
@@ -1048,7 +1049,7 @@ export const useProviderStore = defineStore('provider', () => {
   // remain available without a persisted configuration record.
   const moduleChatProvidersMetadata = computed(() => {
     return allChatProvidersMetadata.value.filter(metadata =>
-      isProviderConfiguredForModule(metadata.id)
+      isProviderUsableForModule(metadata.id)
       || (providerConfiguredBy(metadata.id) !== 'authentication' && shouldListProvider(metadata.id))
       || isProviderAvailableWithoutConfiguration(metadata.id),
     )
@@ -1056,21 +1057,21 @@ export const useProviderStore = defineStore('provider', () => {
 
   const moduleSpeechProvidersMetadata = computed(() => {
     return allAudioSpeechProvidersMetadata.value.filter(metadata =>
-      isProviderConfiguredForModule(metadata.id)
+      isProviderUsableForModule(metadata.id)
       || isProviderAvailableWithoutConfiguration(metadata.id),
     )
   })
 
   const moduleTranscriptionProvidersMetadata = computed(() => {
     return allAudioTranscriptionProvidersMetadata.value.filter(metadata =>
-      isProviderConfiguredForModule(metadata.id)
+      isProviderUsableForModule(metadata.id)
       || isProviderAvailableWithoutConfiguration(metadata.id),
     )
   })
 
   const moduleVisionProvidersMetadata = computed(() => {
     return allVisionProvidersMetadata.value.filter(metadata =>
-      isProviderConfiguredForModule(metadata.id)
+      isProviderUsableForModule(metadata.id)
       || (providerConfiguredBy(metadata.id) !== 'authentication' && shouldListProvider(metadata.id))
       || isProviderAvailableWithoutConfiguration(metadata.id),
     )
